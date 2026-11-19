@@ -1,0 +1,3 @@
+- insert:
+    - id: floating-clock
+      name: '@local/floating-clock'
