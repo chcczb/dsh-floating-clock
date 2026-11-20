@@ -295,13 +295,17 @@ window.__ModuleLoader__.load({
       '.fc-panel {',
       '  position: fixed; z-index: 31; box-sizing: border-box;',
       '  width: calc(var(--fc-s) * 312px); padding: calc(var(--fc-s) * 14px);',
-      '  background: var(--dsw-alias-bg-overlay);',
-      '  background: color-mix(in srgb, var(--dsw-alias-bg-overlay) var(--fc-bgop, 100%), transparent);',
-      '  backdrop-filter: blur(calc(var(--fc-s) * 10px));',
+      '  background: transparent;',
       '  border: 1px solid var(--dsw-alias-border-l1);',
       '  border-radius: calc(var(--fc-s) * 12px);',
       '  box-shadow: 0 calc(var(--fc-s) * 8px) calc(var(--fc-s) * 28px) rgba(0, 0, 0, 0.24);',
       '  color: var(--dsw-alias-label-primary); font-family: inherit;',
+      '}',
+      '.fc-panel::before, .fc-sched::before {',
+      '  content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit;',
+      '  background: linear-gradient(var(--dsw-alias-bg-overlay), var(--dsw-alias-bg-overlay)), var(--dsw-alias-bg-base);',
+      '  opacity: var(--fc-bgop, 1);',
+      '  backdrop-filter: blur(calc(var(--fc-s) * 10px));',
       '}',
       '.fc-head { display: flex; align-items: flex-start; justify-content: space-between; gap: calc(var(--fc-s) * 8px); }',
       '.fc-head-day { font-size: calc(var(--fc-s) * 18px); font-weight: 600; }',
@@ -386,9 +390,7 @@ window.__ModuleLoader__.load({
       '.fc-sched {',
       '  position: fixed; z-index: 32; box-sizing: border-box;',
       '  width: calc(var(--fc-s) * 252px); padding: calc(var(--fc-s) * 10px);',
-      '  background: var(--dsw-alias-bg-overlay);',
-      '  background: color-mix(in srgb, var(--dsw-alias-bg-overlay) var(--fc-bgop, 100%), transparent);',
-      '  backdrop-filter: blur(calc(var(--fc-s) * 10px));',
+      '  background: transparent;',
       '  border: 1px solid var(--dsw-alias-border-l1);',
       '  border-radius: calc(var(--fc-s) * 10px);',
       '  box-shadow: 0 calc(var(--fc-s) * 8px) calc(var(--fc-s) * 24px) rgba(0, 0, 0, 0.26);',
@@ -559,7 +561,7 @@ window.__ModuleLoader__.load({
       const alarmLead = clamp(Math.round(Number(settings.alarm && settings.alarm.lead) || 0), 0, 30);
       const alarmCustom = !!(settings.alarm && settings.alarm.custom);
       const bgOpacity = clamp(Number(settings.bgOpacity) || 1, 0.2, 1);
-      const bgPct = Math.round(bgOpacity * 100) + '%';
+      const bgOpVar = String(bgOpacity);
 
       /* ---------- locale ---------- */
       const locale = useMemo(() => {
@@ -1153,7 +1155,7 @@ window.__ModuleLoader__.load({
         open ? h('div', {
           ref: panelRef, className: 'fc-panel', role: 'dialog',
           'aria-label': tab === 'settings' ? t('settings.title') : t('calendar.title'),
-          style: Object.assign({ '--fc-s': String(scale), '--fc-bgop': bgPct }, panelPos || { visibility: 'hidden' }),
+          style: Object.assign({ '--fc-s': String(scale), '--fc-bgop': bgOpVar }, panelPos || { visibility: 'hidden' }),
         },
           h('div', { className: 'fc-head' },
             h('div', null,
@@ -1175,7 +1177,7 @@ window.__ModuleLoader__.load({
         open && schedView ? h('div', {
           ref: schedPopRef, className: 'fc-sched', role: 'dialog',
           'aria-label': t('schedule.title'),
-          style: Object.assign({ '--fc-s': String(scale), '--fc-bgop': bgPct }, schedView.style),
+          style: Object.assign({ '--fc-s': String(scale), '--fc-bgop': bgOpVar }, schedView.style),
         },
           h('div', { className: 'fc-sched-head' },
             h('span', null, schedView.label),
