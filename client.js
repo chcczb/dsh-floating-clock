@@ -871,30 +871,46 @@ window.__ModuleLoader__.load({
         };
       }, [open, schedView]);
 
-      /* ---------- expire un-acked reminders into red missed dots ---------- */
+      /* ---------- expire un-acked reminders into red missed dots ----------
+         Pure time-based rule: once a day's entry is past its reminder window
+         (entry time + 5 min) without an ack, it counts as unread — including
+         windows that elapsed while the Host or the page was not running; the
+         next tick after startup back-fills the red dot. */
       useEffect(() => {
-        const d = now;
-        const key = dateKeyOf({ y: d.getFullYear(), m: d.getMonth(), d: d.getDate() });
-        const list = schedMapRef.current[key];
-        if (!list || !list.length) return;
-        const nowSec = d.getHours() * 3600 + d.getMinutes() * 60 + d.getSeconds();
+        const map = schedMapRef.current;
+        const nowMs = now.getTime();
+        const nextMap = Object.assign({}, map);
         let changed = false;
-        const next = list.map((row) => {
-          const p = row.time.split(':');
-          const schedSec = (Number(p[0]) || 0) * 3600 + (Number(p[1]) || 0) * 60;
-          if (nowSec >= schedSec - alarmLead * 60 && nowSec < schedSec + 300) {
-            firedRef.current.add(row.id);
+        for (const key of Object.keys(map)) {
+          const kp = key.split('-');
+          const y = Number(kp[0]);
+          const mo = Number(kp[1]);
+          const da = Number(kp[2]);
+          if (!y || !mo || !da) continue;
+          const list = map[key];
+          let listChanged = false;
+          const nextList = list.map((row) => {
+            if (row.missed || row.acked) return row;
+            const tp = row.time.split(':');
+            const endMs = new Date(y, mo - 1, da, Number(tp[0]) || 0, (Number(tp[1]) || 0) + 5).getTime();
+            if (nowMs >= endMs) {
+              listChanged = true;
+              return Object.assign({}, row, { missed: true });
+            }
             return row;
-          }
-          if (row.missed || row.acked) return row;
-          if (nowSec >= schedSec + 300 && firedRef.current.has(row.id)) {
+          });
+          if (listChanged) {
             changed = true;
-            return Object.assign({}, row, { missed: true });
+            nextMap[key] = nextList;
           }
-          return row;
-        });
-        if (changed) updateSched(key, () => next);
-      }, [now, schedMap, alarmLead, updateSched]);
+        }
+        if (changed) {
+          schedMapRef.current = nextMap;
+          saveSchedules(nextMap);
+          setSchedMap(nextMap);
+          pushToHost();
+        }
+      }, [now, schedMap, pushToHost]);
 
       /* ---------- calendar helpers ---------- */
       const cells = useMemo(() => buildMonthGrid(cursor.y, cursor.m, weekStart), [cursor.y, cursor.m, weekStart]);
@@ -962,7 +978,6 @@ window.__ModuleLoader__.load({
         setDraft(null);
       }, [draft, schedView, updateSched]);
 
-      const firedRef = useRef(new Set());
       const ackAlarm = useCallback((row) => {
         if (row.acked) return;
         const d = new Date();
