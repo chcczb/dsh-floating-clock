@@ -48,6 +48,7 @@ window.__ModuleLoader__.load({
         'alarm.minutesUnit': 'min',
         'alarm.clickToStop': 'Click to stop the bell',
         'alarm.missed': 'missed',
+        'alarm.acked': 'read',
       },
       zh: {
         'clock.aria': '时钟，点击打开日历',
@@ -87,6 +88,7 @@ window.__ModuleLoader__.load({
         'alarm.minutesUnit': '分钟',
         'alarm.clickToStop': '点击停止跳动',
         'alarm.missed': '条未点提醒',
+        'alarm.acked': '已读',
       },
     };
 
@@ -493,6 +495,7 @@ window.__ModuleLoader__.load({
       '.fc-set-unit { font-size: calc(var(--fc-s) * 11px); color: var(--dsw-alias-label-secondary); }',
       '.fc-day-dot-red { background: var(--dsw-alias-state-error-primary); }',
       '.fc-sched-missed { width: calc(var(--fc-s) * 6px); height: calc(var(--fc-s) * 6px); border-radius: 50%; background: var(--dsw-alias-state-error-primary); flex: none; }',
+      '.fc-sched-acked { width: calc(var(--fc-s) * 6px); height: calc(var(--fc-s) * 6px); border-radius: 50%; background: var(--dsw-alias-state-success-primary); flex: none; }',
       '.fc-pill:focus-visible, .fc-icon-btn:focus-visible, .fc-day:focus-visible,',
       '.fc-today-btn:focus-visible, .fc-btn:focus-visible, .fc-switch:focus-visible,',
       '.fc-mini-btn:focus-visible, .fc-sched-time-input:focus-visible, .fc-sched-text-input:focus-visible,',
@@ -1223,6 +1226,7 @@ window.__ModuleLoader__.load({
             schedRows.length === 0 && !draft ? h('div', { className: 'fc-sched-empty' }, t('schedule.empty')) : null,
             schedRows.map((row, i) => h('div', { className: 'fc-sched-row', key: 'fc-s-' + schedView.key + '-' + i },
               row.missed && !row.acked ? h('span', { className: 'fc-sched-missed', title: t('alarm.missed') }) : null,
+              row.acked ? h('span', { className: 'fc-sched-acked', title: t('alarm.acked') }) : null,
               h('span', { className: 'fc-sched-time' }, row.time),
               h('span', { className: 'fc-sched-text', title: row.text }, row.text),
               schedView.mode === 'edit' ? h('button', {
