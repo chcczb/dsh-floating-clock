@@ -21,6 +21,8 @@ window.__ModuleLoader__.load({
         'settings.title': 'Settings',
         'settings.size': 'Display size',
         'settings.sizeHint': 'Scales the clock and calendar proportionally',
+        'settings.bgOpacity': 'Background opacity',
+        'settings.bgOpacityHint': 'Applies to the calendar and schedule panel backgrounds',
         'settings.blink': 'Blinking colon',
         'settings.blinkHint': 'Blinks once per second',
         'settings.hour24': '24-hour format',
@@ -58,6 +60,8 @@ window.__ModuleLoader__.load({
         'settings.title': '设置',
         'settings.size': '显示大小',
         'settings.sizeHint': '时钟与日历内容等比缩放',
+        'settings.bgOpacity': '背景透明度',
+        'settings.bgOpacityHint': '作用于日历与日程弹窗的背景',
         'settings.blink': '冒号闪烁',
         'settings.blinkHint': '每 1 秒闪烁一次',
         'settings.hour24': '24 小时制',
@@ -86,7 +90,7 @@ window.__ModuleLoader__.load({
       },
     };
 
-    const DEFAULT_SETTINGS = { scale: 1, blink: true, h24: true, pos: null, alarm: { custom: false, lead: 0 } };
+    const DEFAULT_SETTINGS = { scale: 1, blink: true, h24: true, pos: null, bgOpacity: 1, alarm: { custom: false, lead: 0 } };
 
     const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
     const pad2 = (n) => (n < 10 ? '0' + n : String(n));
@@ -95,6 +99,7 @@ window.__ModuleLoader__.load({
       const parsed = input && typeof input === 'object' && !Array.isArray(input) ? input : {};
       const next = Object.assign({}, DEFAULT_SETTINGS, parsed);
       next.scale = clamp(Number(next.scale) || 1, 0.6, 2);
+      next.bgOpacity = clamp(Number(next.bgOpacity) || 1, 0.2, 1);
       next.blink = next.blink !== false;
       next.h24 = next.h24 !== false;
       if (next.pos && typeof next.pos !== 'object') next.pos = null;
@@ -291,6 +296,8 @@ window.__ModuleLoader__.load({
       '  position: fixed; z-index: 31; box-sizing: border-box;',
       '  width: calc(var(--fc-s) * 312px); padding: calc(var(--fc-s) * 14px);',
       '  background: var(--dsw-alias-bg-overlay);',
+      '  background: color-mix(in srgb, var(--dsw-alias-bg-overlay) var(--fc-bgop, 100%), transparent);',
+      '  backdrop-filter: blur(calc(var(--fc-s) * 10px));',
       '  border: 1px solid var(--dsw-alias-border-l1);',
       '  border-radius: calc(var(--fc-s) * 12px);',
       '  box-shadow: 0 calc(var(--fc-s) * 8px) calc(var(--fc-s) * 28px) rgba(0, 0, 0, 0.24);',
@@ -380,6 +387,8 @@ window.__ModuleLoader__.load({
       '  position: fixed; z-index: 32; box-sizing: border-box;',
       '  width: calc(var(--fc-s) * 252px); padding: calc(var(--fc-s) * 10px);',
       '  background: var(--dsw-alias-bg-overlay);',
+      '  background: color-mix(in srgb, var(--dsw-alias-bg-overlay) var(--fc-bgop, 100%), transparent);',
+      '  backdrop-filter: blur(calc(var(--fc-s) * 10px));',
       '  border: 1px solid var(--dsw-alias-border-l1);',
       '  border-radius: calc(var(--fc-s) * 10px);',
       '  box-shadow: 0 calc(var(--fc-s) * 8px) calc(var(--fc-s) * 24px) rgba(0, 0, 0, 0.26);',
@@ -549,6 +558,8 @@ window.__ModuleLoader__.load({
       const h24 = settings.h24 !== false;
       const alarmLead = clamp(Math.round(Number(settings.alarm && settings.alarm.lead) || 0), 0, 30);
       const alarmCustom = !!(settings.alarm && settings.alarm.custom);
+      const bgOpacity = clamp(Number(settings.bgOpacity) || 1, 0.2, 1);
+      const bgPct = Math.round(bgOpacity * 100) + '%';
 
       /* ---------- locale ---------- */
       const locale = useMemo(() => {
@@ -810,7 +821,7 @@ window.__ModuleLoader__.load({
             right: effPos.x + 100 * scale, bottom: effPos.y + 38 * scale,
           };
           const margin = 8;
-          const estH = (tab === 'settings' ? 380 : 400) * scale;
+          const estH = (tab === 'settings' ? 420 : 400) * scale;
           const style = {};
           const centerRight = (rect.left + rect.right) / 2 > window.innerWidth / 2;
           if (centerRight) style.right = Math.max(margin, Math.round(window.innerWidth - rect.right)) + 'px';
@@ -1005,6 +1016,17 @@ window.__ModuleLoader__.load({
               onChange: (e) => updateSettings({ scale: clamp(Number(e.target.value) / 100 || 1, 0.6, 2) }),
             }),
             h('span', { className: 'fc-set-value' }, Math.round(scale * 100) + '%'))),
+        h('div', { className: 'fc-set-row' },
+          h('div', { className: 'fc-set-text' },
+            h('div', { className: 'fc-set-label' }, t('settings.bgOpacity')),
+            h('div', { className: 'fc-set-hint' }, t('settings.bgOpacityHint'))),
+          h('div', { className: 'fc-set-inline' },
+            h('input', {
+              className: 'fc-range', type: 'range', min: 20, max: 100, step: 5,
+              value: Math.round(bgOpacity * 100), 'aria-label': t('settings.bgOpacity'),
+              onChange: (e) => updateSettings({ bgOpacity: clamp(Number(e.target.value) / 100 || 1, 0.2, 1) }),
+            }),
+            h('span', { className: 'fc-set-value' }, Math.round(bgOpacity * 100) + '%'))),
         switchRow(t('settings.blink'), t('settings.blinkHint'), blink, (v) => updateSettings({ blink: v })),
         switchRow(t('settings.hour24'), t('settings.hour24Hint'), h24, (v) => updateSettings({ h24: v })),
         h('div', { className: 'fc-set-row fc-set-col' },
@@ -1131,7 +1153,7 @@ window.__ModuleLoader__.load({
         open ? h('div', {
           ref: panelRef, className: 'fc-panel', role: 'dialog',
           'aria-label': tab === 'settings' ? t('settings.title') : t('calendar.title'),
-          style: Object.assign({ '--fc-s': String(scale) }, panelPos || { visibility: 'hidden' }),
+          style: Object.assign({ '--fc-s': String(scale), '--fc-bgop': bgPct }, panelPos || { visibility: 'hidden' }),
         },
           h('div', { className: 'fc-head' },
             h('div', null,
@@ -1153,7 +1175,7 @@ window.__ModuleLoader__.load({
         open && schedView ? h('div', {
           ref: schedPopRef, className: 'fc-sched', role: 'dialog',
           'aria-label': t('schedule.title'),
-          style: Object.assign({ '--fc-s': String(scale) }, schedView.style),
+          style: Object.assign({ '--fc-s': String(scale), '--fc-bgop': bgPct }, schedView.style),
         },
           h('div', { className: 'fc-sched-head' },
             h('span', null, schedView.label),
