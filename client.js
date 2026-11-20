@@ -174,6 +174,37 @@ window.__ModuleLoader__.load({
       return 'fc-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
     }
 
+    /* Pure time rule: any un-acked entry past its window (time + 5 min) is unread.
+       Returns a new map when something changed, otherwise null. */
+    function markMissedInMap(map, nowMs) {
+      const nextMap = Object.assign({}, map);
+      let changed = false;
+      for (const key of Object.keys(map)) {
+        const kp = key.split('-');
+        const y = Number(kp[0]);
+        const mo = Number(kp[1]);
+        const da = Number(kp[2]);
+        if (!y || !mo || !da) continue;
+        const list = map[key];
+        let listChanged = false;
+        const nextList = list.map((row) => {
+          if (row.missed || row.acked) return row;
+          const tp = row.time.split(':');
+          const endMs = new Date(y, mo - 1, da, Number(tp[0]) || 0, (Number(tp[1]) || 0) + 5).getTime();
+          if (nowMs >= endMs) {
+            listChanged = true;
+            return Object.assign({}, row, { missed: true });
+          }
+          return row;
+        });
+        if (listChanged) {
+          changed = true;
+          nextMap[key] = nextList;
+        }
+      }
+      return changed ? nextMap : null;
+    }
+
     /* ---------- durable Host-side store (survives port/browser changes) ---------- */
     function storeUrl() {
       try {
@@ -436,10 +467,10 @@ window.__ModuleLoader__.load({
       '  font-size: calc(var(--fc-s) * 12.5px); color: var(--dsw-alias-label-primary); font-family: inherit;',
       '  cursor: pointer; user-select: none;',
       '}',
-      '.fc-alarm.fc-done { border-color: var(--dsw-alias-border-l1); cursor: default; }',
+      '.fc-alarm.fc-done { border-color: var(--dsw-alias-state-success-primary); cursor: default; }',
       '.fc-alarm-icon { display: inline-flex; flex: none; color: var(--dsw-alias-state-warn-primary); }',
       '.fc-alarm-icon.fc-ring { animation: fc-bounce 0.7s ease-in-out infinite; }',
-      '.fc-alarm.fc-done .fc-alarm-icon { color: var(--dsw-alias-label-secondary); }',
+      '.fc-alarm.fc-done .fc-alarm-icon { color: var(--dsw-alias-state-success-primary); }',
       '.fc-alarm-time { font-weight: 600; font-variant-numeric: tabular-nums; flex: none; }',
       '.fc-alarm-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }',
       '.fc-set-col { flex-direction: column; align-items: stretch; gap: calc(var(--fc-s) * 6px); }',
@@ -676,11 +707,17 @@ window.__ModuleLoader__.load({
 
       useEffect(() => {
         const flush = () => {
+          /* closing Harness: back-fill overdue unreads and force-flush to the Host store */
+          const mm = markMissedInMap(schedMapRef.current, Date.now());
+          if (mm) {
+            schedMapRef.current = mm;
+            saveSchedules(mm);
+          }
           if (hostPushTimer.current) {
             window.clearTimeout(hostPushTimer.current);
             hostPushTimer.current = 0;
-            hostSave({ version: 1, settings: settingsRef.current, schedules: schedMapRef.current });
           }
+          hostSave({ version: 1, settings: settingsRef.current, schedules: schedMapRef.current });
         };
         window.addEventListener('pagehide', flush);
         return () => {
@@ -716,6 +753,13 @@ window.__ModuleLoader__.load({
               hasLocal = false;
             }
             if (hasLocal) hostSave({ version: 1, settings: settingsRef.current, schedules: schedMapRef.current });
+          }
+          const mm = markMissedInMap(schedMapRef.current, Date.now());
+          if (mm) {
+            schedMapRef.current = mm;
+            saveSchedules(mm);
+            setSchedMap(mm);
+            hostSave({ version: 1, settings: settingsRef.current, schedules: mm });
           }
         });
         return () => { cancelled = true; };
@@ -872,45 +916,18 @@ window.__ModuleLoader__.load({
       }, [open, schedView]);
 
       /* ---------- expire un-acked reminders into red missed dots ----------
-         Pure time-based rule: once a day's entry is past its reminder window
-         (entry time + 5 min) without an ack, it counts as unread — including
-         windows that elapsed while the Host or the page was not running; the
-         next tick after startup back-fills the red dot. */
+         Pure time rule evaluated on every tick over every stored date, so
+         windows that elapsed while the Host or the page was offline are
+         back-filled on the first tick after startup. */
       useEffect(() => {
-        const map = schedMapRef.current;
-        const nowMs = now.getTime();
-        const nextMap = Object.assign({}, map);
-        let changed = false;
-        for (const key of Object.keys(map)) {
-          const kp = key.split('-');
-          const y = Number(kp[0]);
-          const mo = Number(kp[1]);
-          const da = Number(kp[2]);
-          if (!y || !mo || !da) continue;
-          const list = map[key];
-          let listChanged = false;
-          const nextList = list.map((row) => {
-            if (row.missed || row.acked) return row;
-            const tp = row.time.split(':');
-            const endMs = new Date(y, mo - 1, da, Number(tp[0]) || 0, (Number(tp[1]) || 0) + 5).getTime();
-            if (nowMs >= endMs) {
-              listChanged = true;
-              return Object.assign({}, row, { missed: true });
-            }
-            return row;
-          });
-          if (listChanged) {
-            changed = true;
-            nextMap[key] = nextList;
-          }
-        }
-        if (changed) {
+        const nextMap = markMissedInMap(schedMapRef.current, now.getTime());
+        if (nextMap) {
           schedMapRef.current = nextMap;
           saveSchedules(nextMap);
           setSchedMap(nextMap);
           pushToHost();
         }
-      }, [now, schedMap, pushToHost]);
+      }, [now, pushToHost]);
 
       /* ---------- calendar helpers ---------- */
       const cells = useMemo(() => buildMonthGrid(cursor.y, cursor.m, weekStart), [cursor.y, cursor.m, weekStart]);
