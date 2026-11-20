@@ -935,8 +935,8 @@ window.__ModuleLoader__.load({
         setCursor((cur) => (c.y !== cur.y || c.m !== cur.m ? { y: c.y, m: c.m } : cur));
       }, []);
 
-      const openSchedule = useCallback((e, c) => {
-        e.preventDefault();
+      const openScheduleFor = useCallback((e, c, mode) => {
+        if (e && e.preventDefault) e.preventDefault();
         const rect = e.currentTarget.getBoundingClientRect();
         const key = dateKeyOf(c);
         const rows = (schedMapRef.current[key] || []).length;
@@ -949,7 +949,7 @@ window.__ModuleLoader__.load({
         if (top + estH > window.innerHeight - 8) top = Math.max(8, rect.top - estH - 6);
         const label = fmtFullDate ? fmtFullDate.format(new Date(c.y, c.m, c.d)) : key;
         setDraft(null);
-        setSchedView({ key: key, label: label, style: { left: Math.round(left) + 'px', top: Math.round(top) + 'px' } });
+        setSchedView({ key: key, label: label, mode: mode, style: { left: Math.round(left) + 'px', top: Math.round(top) + 'px' } });
       }, [scale, fmtFullDate]);
 
       const commitDraft = useCallback(() => {
@@ -1091,8 +1091,8 @@ window.__ModuleLoader__.load({
           return h('div', { className: 'fc-cell', key: 'fc-c-' + c.y + '-' + c.m + '-' + c.d },
             h('button', {
               type: 'button', className: cls, 'aria-label': aria,
-              onClick: () => pickDay(c),
-              onContextMenu: (e) => openSchedule(e, c),
+              onClick: (e) => { pickDay(c); openScheduleFor(e, c, 'view'); },
+              onContextMenu: (e) => openScheduleFor(e, c, 'edit'),
             },
               h('span', { className: 'fc-day-num' }, c.d),
               cnt > 0 ? h('span', { className: 'fc-day-badge' },
@@ -1192,11 +1192,11 @@ window.__ModuleLoader__.load({
               row.missed && !row.acked ? h('span', { className: 'fc-sched-missed', title: t('alarm.missed') }) : null,
               h('span', { className: 'fc-sched-time' }, row.time),
               h('span', { className: 'fc-sched-text', title: row.text }, row.text),
-              h('button', {
+              schedView.mode === 'edit' ? h('button', {
                 type: 'button', className: 'fc-mini-btn',
                 'aria-label': t('schedule.delete'), title: t('schedule.delete'),
                 onClick: () => updateSched(schedView.key, (l) => l.filter((x) => x !== row)),
-              }, minusIcon(msz)))),
+              }, minusIcon(msz)) : null)),
             draft ? h('div', {
               className: 'fc-sched-add',
               onBlur: (e) => {
@@ -1223,12 +1223,12 @@ window.__ModuleLoader__.load({
                 'aria-label': t('schedule.save'), title: t('schedule.save'),
                 disabled: !canCommit, onClick: commitDraft,
               }, checkIcon(msz))) : null),
-          h('div', { className: 'fc-sched-footer' },
+          schedView.mode === 'edit' ? h('div', { className: 'fc-sched-footer' },
             h('button', {
               type: 'button', className: 'fc-mini-btn fc-plain',
               'aria-label': t('schedule.add'), title: t('schedule.add'),
               onClick: () => setDraft({ time: '', text: '' }),
-            }, plusIcon(msz)))) : null);
+            }, plusIcon(msz))) : null) : null);
     }
 
     return {
