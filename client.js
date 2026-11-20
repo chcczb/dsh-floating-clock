@@ -1117,6 +1117,7 @@ window.__ModuleLoader__.load({
           const mList = schedMap[dateKeyOf(c)] || [];
           const cnt = mList.length;
           const missedCnt = mList.filter((r) => r.missed && !r.acked).length;
+          const activeCnt = cnt - missedCnt;
           const aria = (fmtFullDate ? fmtFullDate.format(cellDate) : c.y + '-' + pad2(c.m + 1) + '-' + pad2(c.d))
             + (cnt > 0 ? ', ' + cnt + ' ' + t('schedule.countSuffix') : '')
             + (missedCnt > 0 ? ', ' + missedCnt + ' ' + t('alarm.missed') : '');
@@ -1128,8 +1129,8 @@ window.__ModuleLoader__.load({
             },
               h('span', { className: 'fc-day-num' }, c.d),
               cnt > 0 ? h('span', { className: 'fc-day-badge' },
-                h('span', { className: 'fc-day-dot' }),
-                h('span', { className: 'fc-day-count' }, cnt),
+                activeCnt > 0 ? h('span', { className: 'fc-day-dot' }) : null,
+                activeCnt > 0 ? h('span', { className: 'fc-day-count' }, activeCnt) : null,
                 missedCnt > 0 ? h('span', { className: 'fc-day-dot fc-day-dot-red' }) : null,
                 missedCnt > 0 ? h('span', { className: 'fc-day-count' }, missedCnt) : null) : null));
         })));
