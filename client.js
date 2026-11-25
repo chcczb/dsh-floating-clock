@@ -227,20 +227,19 @@ window.__ModuleLoader__.load({
       return Math.floor(y * 0.2422 + c) - leap + fix;
     }
 
-    /* The solar term in effect on the date (most recent term on or before it). */
-    function termOnOrBefore(d) {
+    /* The solar term name only when the date is exactly that term's day. */
+    function termOn(d) {
       const y = d.getFullYear();
       if (y < 1901 || y > 2099) return null;
       const m = d.getMonth() + 1;
       const day = d.getDate();
-      const i2 = (m - 1) * 2 + 1;
-      const i1 = i2 - 1;
-      if (day >= termDay(y, i2)) return TERM_NAMES[i2];
-      if (day >= termDay(y, i1)) return TERM_NAMES[i1];
-      if (m === 1) return y - 1 >= 1901 ? TERM_NAMES[23] : null;
-      return TERM_NAMES[(m - 2) * 2 + 1];
+      const i1 = (m - 1) * 2;
+      if (day === termDay(y, i1)) return TERM_NAMES[i1];
+      if (day === termDay(y, i1 + 1)) return TERM_NAMES[i1 + 1];
+      return null;
     }
 
+    const BRANCH_ZODIAC = { 子: '鼠', 丑: '牛', 寅: '虎', 卯: '兔', 辰: '龙', 巳: '蛇', 午: '马', 未: '羊', 申: '猴', 酉: '鸡', 戌: '狗', 亥: '猪' };
     const LUNAR_DAYS = ['初一', '初二', '初三', '初四', '初五', '初六', '初七', '初八', '初九', '初十', '十一', '十二', '十三', '十四', '十五', '十六', '十七', '十八', '十九', '二十', '廿一', '廿二', '廿三', '廿四', '廿五', '廿六', '廿七', '廿八', '廿九', '三十'];
 
     let lunarFmtCache;
@@ -268,7 +267,10 @@ window.__ModuleLoader__.load({
           const n = Number(day);
           day = LUNAR_DAYS[n - 1] || day;
         }
-        return (yearName ? yearName + '年' : '') + month + day;
+        /* Format: 丙午 · 马年 · 十月十七 (zodiac derived from the earthly branch). */
+        const branch = yearName ? BRANCH_ZODIAC[yearName.charAt(1)] : '';
+        const zodiac = branch ? branch + '年' : '';
+        return [yearName, zodiac, month + day].filter(Boolean).join(' · ');
       } catch (e) {
         return '';
       }
@@ -276,7 +278,7 @@ window.__ModuleLoader__.load({
 
     function lunarLine(d) {
       const lunar = lunarText(d);
-      const term = termOnOrBefore(d);
+      const term = termOn(d);
       if (lunar && term) return lunar + ' · ' + term;
       return lunar || term || '';
     }
