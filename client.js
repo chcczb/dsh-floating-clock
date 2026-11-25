@@ -207,6 +207,80 @@ window.__ModuleLoader__.load({
       return changed ? nextMap : null;
     }
 
+    /* ---------- lunar calendar & solar terms (no external library) ---------- */
+    const TERM_NAMES = ['小寒', '大寒', '立春', '雨水', '惊蛰', '春分', '清明', '谷雨', '立夏', '小满', '芒种', '夏至', '小暑', '大暑', '立秋', '处暑', '白露', '秋分', '寒露', '霜降', '立冬', '小雪', '大雪', '冬至'];
+    const TERM_C21 = [5.4055, 20.12, 3.87, 18.73, 5.63, 20.646, 4.81, 20.1, 5.52, 21.04, 5.678, 21.37, 7.108, 22.83, 7.5, 23.13, 7.646, 23.042, 8.318, 23.438, 7.438, 22.36, 7.18, 21.94];
+    const TERM_C20 = [6.11, 20.84, 4.6295, 19.4599, 6.3826, 21.4155, 5.59, 20.888, 6.318, 21.86, 6.5, 22.2, 7.928, 23.65, 8.35, 23.95, 8.44, 23.822, 9.098, 24.218, 8.218, 23.08, 7.9, 22.6];
+    /* Published corrections to the Shouzheng formula, keyed year:termIndex. */
+    const TERM_FIX = {
+      '1902:10': 1, '1911:8': 1, '1918:23': -1, '1922:13': 1, '1925:12': 1,
+      '1927:16': 1, '1928:11': 1, '1954:22': 1, '1978:21': 1, '1982:0': 1,
+      '2002:14': 1, '2008:9': 1, '2016:12': 1, '2019:0': -1, '2021:23': -1,
+      '2026:3': -1, '2082:1': 1, '2089:19': 1, '2089:20': 1,
+    };
+
+    function termDay(year, i) {
+      const y = year % 100;
+      const c = year >= 2000 ? TERM_C21[i] : TERM_C20[i];
+      const leap = i < 4 ? Math.floor((y - 1) / 4) : Math.floor(y / 4);
+      const fix = TERM_FIX[year + ':' + i] || 0;
+      return Math.floor(y * 0.2422 + c) - leap + fix;
+    }
+
+    /* The solar term in effect on the date (most recent term on or before it). */
+    function termOnOrBefore(d) {
+      const y = d.getFullYear();
+      if (y < 1901 || y > 2099) return null;
+      const m = d.getMonth() + 1;
+      const day = d.getDate();
+      const i2 = (m - 1) * 2 + 1;
+      const i1 = i2 - 1;
+      if (day >= termDay(y, i2)) return TERM_NAMES[i2];
+      if (day >= termDay(y, i1)) return TERM_NAMES[i1];
+      if (m === 1) return y - 1 >= 1901 ? TERM_NAMES[23] : null;
+      return TERM_NAMES[(m - 2) * 2 + 1];
+    }
+
+    const LUNAR_DAYS = ['初一', '初二', '初三', '初四', '初五', '初六', '初七', '初八', '初九', '初十', '十一', '十二', '十三', '十四', '十五', '十六', '十七', '十八', '十九', '二十', '廿一', '廿二', '廿三', '廿四', '廿五', '廿六', '廿七', '廿八', '廿九', '三十'];
+
+    let lunarFmtCache;
+    function lunarText(d) {
+      if (lunarFmtCache === undefined) {
+        try {
+          lunarFmtCache = new Intl.DateTimeFormat('zh-CN-u-ca-chinese', { year: 'numeric', month: 'long', day: 'numeric' });
+        } catch (e) {
+          lunarFmtCache = null;
+        }
+      }
+      if (!lunarFmtCache) return '';
+      try {
+        let yearName = '';
+        let month = '';
+        let day = '';
+        for (const p of lunarFmtCache.formatToParts(d)) {
+          if (p.type === 'yearName') yearName = p.value;
+          else if (p.type === 'month') month = p.value;
+          else if (p.type === 'day') day = p.value;
+        }
+        if (!month || !day) return '';
+        /* ICU may emit the lunar day as a plain number; render the traditional name. */
+        if (/^\d+$/.test(day)) {
+          const n = Number(day);
+          day = LUNAR_DAYS[n - 1] || day;
+        }
+        return (yearName ? yearName + '年' : '') + month + day;
+      } catch (e) {
+        return '';
+      }
+    }
+
+    function lunarLine(d) {
+      const lunar = lunarText(d);
+      const term = termOnOrBefore(d);
+      if (lunar && term) return lunar + ' · ' + term;
+      return lunar || term || '';
+    }
+
     /* ---------- durable Host-side store (survives port/browser changes) ---------- */
     function storeUrl() {
       try {
@@ -430,6 +504,8 @@ window.__ModuleLoader__.load({
       '  color: var(--dsw-alias-label-primary); font-family: inherit;',
       '}',
       '.fc-sched-head { display: flex; align-items: center; justify-content: space-between; gap: calc(var(--fc-s) * 6px); font-size: calc(var(--fc-s) * 12.5px); font-weight: 600; margin-bottom: calc(var(--fc-s) * 6px); }',
+      '.fc-sched-head-text { display: flex; flex-direction: column; gap: calc(var(--fc-s) * 2px); min-width: 0; }',
+      '.fc-sched-lunar { font-size: calc(var(--fc-s) * 10.5px); font-weight: 400; color: var(--dsw-alias-label-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }',
       '.fc-sched-list { display: flex; flex-direction: column; gap: calc(var(--fc-s) * 2px); max-height: calc(var(--fc-s) * 220px); overflow-y: auto; }',
       '.fc-sched-row { display: flex; align-items: center; gap: calc(var(--fc-s) * 6px); padding: calc(var(--fc-s) * 3px) calc(var(--fc-s) * 4px); border-radius: calc(var(--fc-s) * 6px); font-size: calc(var(--fc-s) * 12px); }',
       '.fc-sched-row:hover { background: var(--dsw-alias-interactive-bg-hover); }',
@@ -1142,6 +1218,11 @@ window.__ModuleLoader__.load({
       const msz = Math.max(10, Math.round(12 * scale));
       const schedRows = schedView ? (schedMap[schedView.key] || []).slice().sort(byTime) : [];
       const canCommit = !!draft && /^\d{2}:\d{2}$/.test(draft.time || '') && (draft.text || '').trim().length > 0;
+      const lunarSub = useMemo(() => {
+        if (!schedView) return '';
+        const kp = schedView.key.split('-');
+        return lunarLine(new Date(Number(kp[0]), Number(kp[1]) - 1, Number(kp[2])));
+      }, [schedView && schedView.key]);
 
       return h(React.Fragment, null,
         h('style', null, CSS),
@@ -1216,7 +1297,9 @@ window.__ModuleLoader__.load({
           style: Object.assign({ '--fc-s': String(scale), '--fc-bgop': bgOpVar }, schedView.style),
         },
           h('div', { className: 'fc-sched-head' },
-            h('span', null, schedView.label),
+            h('div', { className: 'fc-sched-head-text' },
+              h('span', null, schedView.label),
+              lunarSub ? h('span', { className: 'fc-sched-lunar' }, lunarSub) : null),
             h('button', {
               type: 'button', className: 'fc-mini-btn fc-plain',
               'aria-label': t('schedule.close'), title: t('schedule.close'),
